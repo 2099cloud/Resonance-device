@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Kinetic Resonance Simulator - Pendulum & Jellyfish Array</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            user-select: none;
+        }
+        body {
+            background-color: #0b0d12;
+            color: #e1e6ed;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+        #webgl-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        /* Header Title Overlay */
+        .title-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            pointer-events: none;
+        }
+        .title-overlay h1 {
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: 1.2px;
+            color: #ffffff;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .title-overlay h1::before {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: #00f0ff;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #00f0ff;
+        }
+        .title-overlay p {
+            font-size: 12px;
+            color: #8a94a6;
+            letter-spacing: 0.5px;
+        }
+
+        /* Controls Panel */
+        .ui-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 320px;
+            max-height: calc(100vh - 40px);
+            background: rgba(18, 22, 31, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            z-index: 10;
+            padding: 16px;
+            overflow-y: auto;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.2) transparent;
+        }
+        .ui-panel::-webkit-scrollbar {
+            width: 4px;
+        }
+        .ui-panel::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+        }
+
+        .section-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #00f0ff;
+            margin: 14px 0 10px 0;
+            padding-bottom: 4px;
+            border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+        }
+        .section-title:first-child {
+            margin-top: 0;
+        }
+
+        .control-group {
+            margin-bottom: 10px;
+        }
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #c5cedc;
+            margin-bottom: 4px;
+        }
+        .control-value {
+            font-family: monospace;
+            color: #00f0ff;
+            font-size: 11px;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+            background: rgba(255, 255, 255, 0.15);
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #00f0ff;
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(0, 240, 255, 0.8);
+            transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .color-pickers {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .color-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255, 255, 255, 0.04);
+            padding: 6px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .color-item span {
+            font-size: 11px;
+            color: #a0aec0;
+        }
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 4px;
+            cursor: pointer;
+            background: none;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+        input[type="color"]::-webkit-color-swatch {
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 4px;
+        }
+
+        .toggle-btn {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid rgba(0, 240, 255, 0.4);
+            background: rgba(0, 240, 255, 0.1);
+            color: #00f0ff;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            transition: all 0.2s;
+            margin-top: 4px;
+        }
+        .toggle-btn:hover {
+            background: rgba(0, 240, 255, 0.25);
+            box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+        }
+        .toggle-btn.off {
+            border-color: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.05);
+            color: #8a94a6;
+        }
+
+        /* Telemetry overlay */
+        .telemetry-overlay {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(18, 22, 31, 0.75);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-family: monospace;
+            font-size: 11px;
+            color: #8a94a6;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            gap: 16px;
+        }
+        .telemetry-item span {
+            color: #00f0ff;
+        }
+    </style>
+
+    <!-- Three.js and OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+    <div class="title-overlay">
+        <h1>Kinetic Wave Matrix</h1>
+        <p>3D Pendulum & Jellyfish Mechanical Resonance Array</p>
+    </div>
+
+    <div class="telemetry-overlay">
+        <div class="telemetry-item">ARRAY UNITS: <span id="telemetry-count">6</span></div>
+        <div class="telemetry-item">WAVE PHASE: <span id="telemetry-phase">0.00 rad</span></div>
+        <div class="telemetry-item">MAX LIFT dH: <span id="telemetry-lift">0.00 cm</span></div>
+    </div>
+
+    <div class="ui-panel">
+        <div class="section-title">1. Array & Wave Control</div>
+        
+        <div class="control-group">
+            <div class="control-label">Array Count (Units) <span class="control-value" id="val-arrayCount">6</span></div>
+            <input type="range" id="param-arrayCount" min="1" max="15" step="1" value="6">
+        </div>
+
+        <div class="control-group">
+            <div class="control-label">Unit Spacing (m) <span class="control-value" id="val-unitSpacing">1.6</span></div>
+            <input type="range" id="param-unitSpacing" min="1.0" max="3.0" step="0.1" value="1.6">
+        </div>
+
+        <button class="toggle-btn" id="btn-autoSwing">AUTO WAVE ANIMATION: ON</button>
+
+        <div class="control-group" style="margin-top: 10px;">
+            <div class="control-label">Wave Speed <span class="control-value" id="val-waveSpeed">1.2</span></div>
+            <input type="range" id="param-waveSpeed" min="0.2" max="3.0" step="0.1" value="1.2">
+        </div>
+
+        <div class="control-group">
+            <div class="control-label">Phase Shift (deg/unit) <span class="control-value" id="val-phaseShift">35 deg</span></div>
+            <input type="range" id="param-phaseShift" min="0" max="90" step="5" value="35">
+        </div>
+
+        <div class="control-group" id="group-manualAngle" style="opacity: 0.5; pointer-events: none;">
+            <div class="control-label">Manual Angle <span class="control-value" id="val-manualAngle">0 deg</span></div>
+            <input type="range" id="param-manualAngle" min="-50" max="50" step="1" value="0">
+        </div>
+
+        <div class="section-title">2. Geometry & Mechanical Ratios</div>
+
+        <div class="control-group">
+            <div class="control-label">Pendulum Rope Length <span class="control-value" id="val-pendulumLength">2.2 m</span></div>
+            <input type="range" id="param-pendulumLength" min="1.0" max="4.0" step="0.1" value="2.2">
+        </div>
+
+        <div class="control-group">
+            <div class="control-label">Jellyfish Rope Length <span class="control-value" id="val-jellyfishLength">2.2 m</span></div>
+            <input type="range" id="param-jellyfishLength" min="1.0" max="4.0" step="0.1" value="2.2">
+        </div>
+
+        <div class="control-group">
+            <div class="control-label">Attachment Radius (r) <span class="control-value" id="val-attachmentRadius">1.2 m</span></div>
+            <input type="range" id="param-attachmentRadius" min="0.3" max="2.5" step="0.1" value="1.2">
+        </div>
+
+        <div class="control-group">
+            <div class="control-label">Max Swing Amplitude <span class="control-value" id="val-maxAmplitude">35 deg</span></div>
+            <input type="range" id="param-maxAmplitude" min="10" max="60" step="1" value="35">
+        </div>
+
+        <div class="section-title">3. Aesthetics & Materials</div>
+
+        <div class="color-pickers">
+            <div class="color-item">
+                <span>Background</span>
+                <input type="color" id="color-bg" value="#0b0d12">
+            </div>
+            <div class="color-item">
+                <span>Pendulum</span>
+                <input type="color" id="color-pendulum" value="#ff3366">
+            </div>
+            <div class="color-item">
+                <span>Pend. Rope</span>
+                <input type="color" id="color-pendulumRope" value="#ff99bb">
+            </div>
+            <div class="color-item">
+                <span>Jellyfish</span>
+                <input type="color" id="color-jellyfish" value="#00f0ff">
+            </div>
+            <div class="color-item">
+                <span>Jelly. Rope</span>
+                <input type="color" id="color-jellyfishRope" value="#70e4ff">
+            </div>
+        </div>
+    </div>
+
+    <div id="webgl-container"></div>
+
+    <script>
+        // Global Simulation State
+        const state = {
+            arrayCount: 6,
+            unitSpacing: 1.6,
+            isAutoSwing: true,
+            waveSpeed: 1.2,
+            phaseShift: 35 * Math.PI / 180,
+            manualAngle: 0,
+            pendulumLength: 2.2,
+            jellyfishLength: 2.2,
+            attachmentRadius: 1.2,
+            maxAmplitude: 35 * Math.PI / 180,
+            
+            // Colors
+            colorBg: '#0b0d12',
+            colorPendulum: '#ff3366',
+            colorPendulumRope: '#ff99bb',
+            colorJellyfish: '#00f0ff',
+            colorJellyfishRope: '#70e4ff',
+            colorFrame: '#2a3142'
+        };
+
+        // Three.js Core Variables
+        let scene, camera, renderer, controls;
+        let arrayUnits = []; // Holds references to meshes and dynamic components
+        let gantryFrameGroup;
+        let simTime = 0;
+
+        // Initialize 3D Environment
+        function init() {
+            const container = document.getElementById('webgl-container');
+
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(state.colorBg);
+            scene.fog = new THREE.FogExp2(state.colorBg, 0.035);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 4, 9);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            // Controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 2 + 0.1; // Don't go too far below ground
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(5, 12, 8);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            scene.add(dirLight);
+
+            const pointLight = new THREE.PointLight(0x00f0ff, 0.5, 15);
+            pointLight.position.set(0, 3, 2);
+            scene.add(pointLight);
+
+            // Floor Grid & Reflection
+            const gridHelper = new THREE.GridHelper(30, 30, 0x00f0ff, 0x1e2638);
+            gridHelper.position.y = -2.5;
+            scene.add(gridHelper);
+
+            // Create Dynamic Mechanism Array
+            rebuildArray();
+
+            // Setup UI Listeners
+            setupUI();
+
+            // Window Resize
+            window.addEventListener('resize', onWindowResize);
+
+            // Animation Loop
+            animate();
+        }
+
+        // Factory function for stylized jellyfish mesh
+        function createJellyfishMesh() {
+            const group = new THREE.Group();
+
+            // Dome / Bell
+            const bellGeo = new THREE.SphereGeometry(0.35, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.55);
+            const bellMat = new THREE.MeshStandardMaterial({
+                color: state.colorJellyfish,
+                roughness: 0.2,
+                metalness: 0.1,
+                transparent: true,
+                opacity: 0.85,
+                emissive: state.colorJellyfish,
+                emissiveIntensity: 0.3
+            });
+            const bellMesh = new THREE.Mesh(bellGeo, bellMat);
+            bellMesh.castShadow = true;
+            group.add(bellMesh);
+
+            // Inner Glowing Core
+            const coreGeo = new THREE.SphereGeometry(0.12, 16, 16);
+            const coreMat = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.9
+            });
+            const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+            coreMesh.position.y = -0.1;
+            group.add(coreMesh);
+
+            // Rim Ring
+            const rimGeo = new THREE.TorusGeometry(0.35, 0.02, 12, 24);
+            const rimMat = new THREE.MeshStandardMaterial({
+                color: state.colorJellyfish,
+                roughness: 0.1,
+                metalness: 0.8
+            });
+            const rimMesh = new THREE.Mesh(rimGeo, rimMat);
+            rimMesh.rotation.x = Math.PI / 2;
+            rimMesh.position.y = -0.05;
+            group.add(rimMesh);
+
+            // Tentacles
+            const tentacles = [];
+            const numTentacles = 8;
+            for (let i = 0; i < numTentacles; i++) {
+                const angle = (i / numTentacles) * Math.PI * 2;
+                const radius = 0.25;
+                const points = [];
+                const segments = 10;
+                for (let j = 0; j <= segments; j++) {
+                    points.push(new THREE.Vector3(
+                        Math.cos(angle) * radius,
+                        -0.1 - (j * 0.08),
+                        Math.sin(angle) * radius
+                    ));
+                }
+                const tentacleGeo = new THREE.BufferGeometry().setFromPoints(points);
+                const tentacleMat = new THREE.LineBasicMaterial({
+                    color: state.colorJellyfish,
+                    transparent: true,
+                    opacity: 0.7,
+                    linewidth: 2
+                });
+                const tentacleLine = new THREE.Line(tentacleGeo, tentacleMat);
+                group.add(tentacleLine);
+                tentacles.push({ line: tentacleLine, basePoints: points, angle: angle });
+            }
+
+            return { group, bellMat, tentacles };
+        }
+
+        // Rebuild full 3D mechanism array based on state
+        function rebuildArray() {
+            // Remove existing array
+            if (arrayUnits.length > 0) {
+                arrayUnits.forEach(u => scene.remove(u.rootGroup));
+                arrayUnits = [];
+            }
+            if (gantryFrameGroup) {
+                scene.remove(gantryFrameGroup);
+            }
+
+            gantryFrameGroup = new THREE.Group();
+
+            const N = state.arrayCount;
+            const spacing = state.unitSpacing;
+            const totalWidth = (N - 1) * spacing;
+
+            // Overhead Support Bar
+            const barGeo = new THREE.BoxGeometry(totalWidth + 1.2, 0.08, 0.08);
+            const barMat = new THREE.MeshStandardMaterial({ color: 0x3a4454, metalness: 0.8, roughness: 0.3 });
+            
+            // Frame Bar 1 (Pendulum axis)
+            const bar1 = new THREE.Mesh(barGeo, barMat);
+            bar1.position.set(0, 3.5, 0);
+            gantryFrameGroup.add(bar1);
+
+            // Frame Bar 2 (Pulley axis)
+            const bar2 = new THREE.Mesh(barGeo, barMat);
+            bar2.position.set(0, 3.8, 0.8);
+            gantryFrameGroup.add(bar2);
+
+            // Frame Bar 3 (Jellyfish hanging axis)
+            const bar3 = new THREE.Mesh(barGeo, barMat);
+            bar3.position.set(0, 3.8, 2.8);
+            gantryFrameGroup.add(bar3);
+
+            // Cross Connectors
+            for (let i = 0; i < N; i++) {
+                const xPos = (i - (N - 1) / 2) * spacing;
+                const crossGeo = new THREE.BoxGeometry(0.04, 0.04, 3.0);
+                const crossMesh = new THREE.Mesh(crossGeo, barMat);
+                crossMesh.position.set(xPos, 3.8, 1.4);
+                gantryFrameGroup.add(crossMesh);
+            }
+
+            scene.add(gantryFrameGroup);
+
+            // Build individual mechanical units
+            for (let i = 0; i < N; i++) {
+                const xPos = (i - (N - 1) / 2) * spacing;
+                const unitGroup = new THREE.Group();
+                unitGroup.position.x = xPos;
+
+                // 1. Pendulum Assembly
+                const pendPivot = new THREE.Vector3(0, 3.5, 0);
+
+                // Pendulum Bob & Rod
+                const pendRodGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0, -state.pendulumLength, 0)]);
+                const pendRodMat = new THREE.LineBasicMaterial({ color: state.colorPendulum, linewidth: 2 });
+                const pendRod = new THREE.Line(pendRodGeo, pendRodMat);
+                unitGroup.add(pendRod);
+
+                // Pendulum Weight (Bob)
+                const bobGeo = new THREE.OctahedronGeometry(0.22, 1);
+                const bobMat = new THREE.MeshStandardMaterial({ color: state.colorPendulum, roughness: 0.3, metalness: 0.7 });
+                const bobMesh = new THREE.Mesh(bobGeo, bobMat);
+                bobMesh.castShadow = true;
+                unitGroup.add(bobMesh);
+
+                // Attachment Ring (Point A)
+                const ringGeo = new THREE.TorusGeometry(0.05, 0.015, 8, 16);
+                const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+                const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+                unitGroup.add(ringMesh);
+
+                // 2. Pulleys
+                const p1Pos = new THREE.Vector3(0, 3.8, 0.8);
+                const p2Pos = new THREE.Vector3(0, 3.8, 2.8);
+
+                const pulleyGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.04, 16);
+                const pulleyMat = new THREE.MeshStandardMaterial({ color: 0xa0aec0, metalness: 0.9, roughness: 0.2 });
+
+                const p1Mesh = new THREE.Mesh(pulleyGeo, pulleyMat);
+                p1Mesh.rotation.z = Math.PI / 2;
+                p1Mesh.position.copy(p1Pos);
+                unitGroup.add(p1Mesh);
+
+                const p2Mesh = new THREE.Mesh(pulleyGeo, pulleyMat);
+                p2Mesh.rotation.z = Math.PI / 2;
+                p2Mesh.position.copy(p2Pos);
+                unitGroup.add(p2Mesh);
+
+                // 3. Drive Rope System
+                // Rope 1: Attachment A -> P1
+                const rope1Geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+                const rope1Mat = new THREE.LineBasicMaterial({ color: state.colorPendulumRope, linewidth: 2 });
+                const rope1Line = new THREE.Line(rope1Geo, rope1Mat);
+                unitGroup.add(rope1Line);
+
+                // Rope 2: P1 -> P2
+                const rope2Geo = new THREE.BufferGeometry().setFromPoints([p1Pos, p2Pos]);
+                const rope2Mat = new THREE.LineBasicMaterial({ color: state.colorJellyfishRope, linewidth: 2 });
+                const rope2Line = new THREE.Line(rope2Geo, rope2Mat);
+                unitGroup.add(rope2Line);
+
+                // Rope 3: P2 -> Jellyfish
+                const rope3Geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+                const rope3Mat = new THREE.LineBasicMaterial({ color: state.colorJellyfishRope, linewidth: 2 });
+                const rope3Line = new THREE.Line(rope3Geo, rope3Mat);
+                unitGroup.add(rope3Line);
+
+                // 4. Jellyfish Mesh
+                const jellyData = createJellyfishMesh();
+                unitGroup.add(jellyData.group);
+
+                scene.add(unitGroup);
+
+                arrayUnits.push({
+                    index: i,
+                    rootGroup: unitGroup,
+                    pendPivot: pendPivot,
+                    pendRod: pendRod,
+                    bobMesh: bobMesh,
+                    ringMesh: ringMesh,
+                    p1Pos: p1Pos,
+                    p2Pos: p2Pos,
+                    rope1Line: rope1Line,
+                    rope3Line: rope3Line,
+                    jellyData: jellyData,
+                    pendRodMat: pendRodMat,
+                    bobMat: bobMat,
+                    rope1Mat: rope1Mat,
+                    rope2Mat: rope2Mat,
+                    rope3Mat: rope3Mat
+                });
+            }
+        }
+
+        // Kinetic calculations & animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            simTime += 0.016 * state.waveSpeed;
+
+            let maxLiftObserved = 0;
+            let firstUnitPhase = 0;
+
+            arrayUnits.forEach((unit) => {
+                // Determine Swing Angle for this unit
+                let theta = 0;
+                if (state.isAutoSwing) {
+                    const phase = simTime + unit.index * state.phaseShift;
+                    theta = Math.sin(phase) * state.maxAmplitude;
+                    if (unit.index === 0) firstUnitPhase = phase % (Math.PI * 2);
+                } else {
+                    theta = state.manualAngle * Math.PI / 180;
+                }
+
+                // 1. Update Pendulum Rotation (swings along Z axis around X-axis)
+                const pendLen = state.pendulumLength;
+                const r = state.attachmentRadius;
+
+                const bobY = unit.pendPivot.y - pendLen * Math.cos(theta);
+                const bobZ = unit.pendPivot.z + pendLen * Math.sin(theta);
+                unit.bobMesh.position.set(0, bobY, bobZ);
+
+                // Pendulum rod points from pivot to bob
+                const rodPoints = [unit.pendPivot, new THREE.Vector3(0, bobY, bobZ)];
+                unit.pendRod.geometry.setFromPoints(rodPoints);
+
+                // Attachment point A
+                const aY = unit.pendPivot.y - r * Math.cos(theta);
+                const aZ = unit.pendPivot.z + r * Math.sin(theta);
+                const posA = new THREE.Vector3(0, aY, aZ);
+                unit.ringMesh.position.copy(posA);
+
+                // 2. Kinematics & Rope Lengths
+                // Distance from A to Pulley 1
+                const distA_P1 = posA.distanceTo(unit.p1Pos);
+
+                // Baseline Distance at theta = 0
+                const posA_zero = new THREE.Vector3(0, unit.pendPivot.y - r, unit.pendPivot.z);
+                const distA_P1_zero = posA_zero.distanceTo(unit.p1Pos);
+
+                // Lift height Delta H
+                const deltaH = distA_P1_zero - distA_P1;
+                if (Math.abs(deltaH) > maxLiftObserved) maxLiftObserved = Math.abs(deltaH);
+
+                // 3. Update Ropes
+                unit.rope1Line.geometry.setFromPoints([posA, unit.p1Pos]);
+
+                // Jellyfish Y position
+                const jellyY = unit.p2Pos.y - state.jellyfishLength + deltaH;
+                const jellyPos = new THREE.Vector3(0, jellyY, unit.p2Pos.z);
+                unit.jellyData.group.position.copy(jellyPos);
+
+                // Rope 3 (P2 to Jellyfish Top)
+                unit.rope3Line.geometry.setFromPoints([unit.p2Pos, jellyPos]);
+
+                // 4. Jellyfish Tentacle Dynamics
+                const tentaclePulse = Math.sin(simTime * 3 + unit.index) * 0.05;
+                unit.jellyData.tentacles.forEach((t) => {
+                    const newPoints = t.basePoints.map((p, idx) => {
+                        const factor = idx / t.basePoints.length;
+                        return new THREE.Vector3(
+                            p.x + Math.sin(simTime * 4 + idx + t.angle) * 0.02 * factor,
+                            p.y + tentaclePulse * factor,
+                            p.z + Math.cos(simTime * 4 + idx + t.angle) * 0.02 * factor
+                        );
+                    });
+                    t.line.geometry.setFromPoints(newPoints);
+                });
+            });
+
+            // Update Telemetry UI
+            document.getElementById('telemetry-count').textContent = state.arrayCount;
+            document.getElementById('telemetry-phase').textContent = firstUnitPhase.toFixed(2) + ' rad';
+            document.getElementById('telemetry-lift').textContent = (maxLiftObserved * 100).toFixed(1) + ' cm';
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Setup Event Listeners for UI
+        function setupUI() {
+            // Helpers
+            const bindRange = (id, stateKey, displayId, transform = v => v) => {
+                const input = document.getElementById(id);
+                input.addEventListener('input', (e) => {
+                    const val = parseFloat(e.target.value);
+                    state[stateKey] = transform(val);
+                    document.getElementById(displayId).textContent = e.target.value + (id.includes('Angle') || id.includes('Shift') || id.includes('Amplitude') ? ' deg' : (id.includes('Spacing') || id.includes('Length') || id.includes('Radius') ? ' m' : ''));
+                    if (['arrayCount', 'unitSpacing', 'pendulumLength', 'jellyfishLength'].includes(stateKey)) {
+                        rebuildArray();
+                    }
+                });
+            };
+
+            bindRange('param-arrayCount', 'arrayCount', 'val-arrayCount');
+            bindRange('param-unitSpacing', 'unitSpacing', 'val-unitSpacing');
+            bindRange('param-waveSpeed', 'waveSpeed', 'val-waveSpeed');
+            bindRange('param-phaseShift', 'phaseShift', 'val-phaseShift', v => v * Math.PI / 180);
+            bindRange('param-manualAngle', 'manualAngle', 'val-manualAngle');
+            bindRange('param-pendulumLength', 'pendulumLength', 'val-pendulumLength');
+            bindRange('param-jellyfishLength', 'jellyfishLength', 'val-jellyfishLength');
+            bindRange('param-attachmentRadius', 'attachmentRadius', 'val-attachmentRadius');
+            bindRange('param-maxAmplitude', 'maxAmplitude', 'val-maxAmplitude', v => v * Math.PI / 180);
+
+            // Auto Swing Toggle
+            const btnAuto = document.getElementById('btn-autoSwing');
+            const manualGroup = document.getElementById('group-manualAngle');
+            btnAuto.addEventListener('click', () => {
+                state.isAutoSwing = !state.isAutoSwing;
+                if (state.isAutoSwing) {
+                    btnAuto.textContent = 'AUTO WAVE ANIMATION: ON';
+                    btnAuto.classList.remove('off');
+                    manualGroup.style.opacity = '0.5';
+                    manualGroup.style.pointerEvents = 'none';
+                } else {
+                    btnAuto.textContent = 'AUTO WAVE ANIMATION: OFF (MANUAL)';
+                    btnAuto.classList.add('off');
+                    manualGroup.style.opacity = '1.0';
+                    manualGroup.style.pointerEvents = 'auto';
+                }
+            });
+
+            // Background Color Picker
+            const inputBg = document.getElementById('color-bg');
+            inputBg.addEventListener('input', (e) => {
+                const col = e.target.value;
+                state.colorBg = col;
+                scene.background.set(col);
+                if (scene.fog) scene.fog.color.set(col);
+                document.body.style.backgroundColor = col;
+            });
+
+            // Color Pickers for Items
+            const bindColor = (id, stateKey, updateTarget) => {
+                const input = document.getElementById(id);
+                input.addEventListener('input', (e) => {
+                    state[stateKey] = e.target.value;
+                    arrayUnits.forEach(u => updateTarget(u, e.target.value));
+                });
+            };
+
+            bindColor('color-pendulum', 'colorPendulum', (u, col) => {
+                u.bobMat.color.set(col);
+                u.pendRodMat.color.set(col);
+            });
+            bindColor('color-pendulumRope', 'colorPendulumRope', (u, col) => u.rope1Mat.color.set(col));
+            bindColor('color-jellyfish', 'colorJellyfish', (u, col) => {
+                u.jellyData.bellMat.color.set(col);
+                u.jellyData.bellMat.emissive.set(col);
+                u.jellyData.tentacles.forEach(t => t.line.material.color.set(col));
+            });
+            bindColor('color-jellyfishRope', 'colorJellyfishRope', (u, col) => {
+                u.rope2Mat.color.set(col);
+                u.rope3Mat.color.set(col);
+            });
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
